@@ -6,36 +6,56 @@ edition = "2024"
 
 [dependencies]
 # Use only features needed for a 2D game to improve compile time and size
-bevy = { version = "0.18", default-features = false, features = ["2d"] }
-rand = "0.9"
-# Compile out low-severity logs to improve performance.
-# Remove these features if you want to profile your game with tracy.
-# (see <https://github.com/bevyengine/bevy/blob/main/docs/profiling.md#tracy-profiler>)
-tracing = { version = "0.1", features = [
+bevy = { version = "0.18", default-features = false, features = [
+"3d_bevy_render",
+    "audio",
+    "default_app",
+    "default_platform",
+    "free_camera",
+    "picking",
+    "scene",
+    "ui_bevy_render",
+] }
+avian3d = { version = "0.5.0", default-features = false, features = ["3d", "f32", "parry-f32"] }
+bevy_egui = { version = "0.39.1", optional = true }
+bevy-inspector-egui = { version = "0.36.0", optional = true }
+tracing = { version = "0.1.44", features = [
     "max_level_debug",
     "release_max_level_warn",
 ] }
+funkus_dialogue_core = { git = "https://github.com/StudioFunkus/funkus_dialogue", branch = "main", default-features = false }
+funkus_dialogue_editor = { git = "https://github.com/StudioFunkus/funkus_dialogue", branch = "main", optional = true, default-features = false, features = ["image_formats_basic"] }
+rand = "0.10.0"
+bevy_seedling = "0.7.0"
+bevy_hanabi = { version = "0.18.0", default-features = false, features = ["3d"] }
 
 [target.wasm32-unknown-unknown.dependencies]
-getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom = { version = "0.4.1", features = ["wasm_js"] }
 
 [features]
 # Default to a native dev build.
-default = ["dev_native"]
+default = ["dev_web"]
+hanabi_web = ["bevy/webgpu"]
+web_audio = ["bevy_seedling/web_audio"]
+
 dev = [
-    # Improve compile times for dev builds by linking Bevy as a dynamic library.
-    "bevy/dynamic_linking",
-    "bevy/bevy_dev_tools",
     "bevy/bevy_ui_debug",
-    # Improve error messages coming from Bevy
+    "dep:bevy_egui",
+    "dep:bevy-inspector-egui",
+    "avian3d/debug-plugin",
     "bevy/track_location",
 ]
 dev_native = [
     "dev",
-    # Enable asset hot reloading for native dev builds.
+    "bevy/dev",
+    "bevy/dynamic_linking",
     "bevy/file_watcher",
-    # Enable embedded asset hot reloading for native dev builds.
     "bevy/embedded_watcher",
+    "dep:funkus_dialogue_editor",
+]
+dev_web = [
+    "dev",
+    "bevy/bevy_dev_tools"
 ]
 
 
@@ -46,9 +66,23 @@ default-features = false
 [package.metadata.bevy_cli.web]
 # Disable native features for web builds.
 default-features = false
+features = ["hanabi_web", "web_audio"]
+rustflags = [
+    "-C", "target-feature=+atomics,+bulk-memory,+mutable-globals",
+    "-Clink-args=--shared-memory",
+    "-Clink-args=--import-memory",
+    "-Clink-args=--max-memory=4294967296",
+    "-Clink-args=--export=__wasm_init_tls",
+    "-Clink-args=--export=__tls_size",
+    "-Clink-args=--export=__tls_align",
+    "-Clink-args=--export=__tls_base",
+]
 
 [package.metadata.bevy_cli.web.dev]
-features = ["dev"]
+features = ["dev_web"]
+
+[package.metadata.bevy_cli.web.unstable]
+web-multi-threading = true
 
 
 [lints.rust]
@@ -94,6 +128,10 @@ codegen-units = 1
 # Slows compile times, marginal improvements.
 lto = "thin"
 
+[profile.web]
+inherits = "dev"
+opt-level = 1
+
 # This profile will be used by `bevy run web` automatically.
 [profile.web-release]
 # Default to release profile values.
@@ -103,6 +141,7 @@ inherits = "release"
 opt-level = "s"
 # Strip all debugging information from the binary to slightly reduce file size.
 strip = "debuginfo"
+panic = "abort"
 
 # Optimize for build time in CI.
 [profile.ci]
